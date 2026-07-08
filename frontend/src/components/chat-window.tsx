@@ -13,13 +13,12 @@ import { cn } from "@/lib/utils";
 
 function ChatMessages(props: {
   messages: Message[];
-  emptyStateComponent: ReactNode;
   aiEmoji?: string;
   className?: string;
 }) {
   return (
     <div className="flex flex-col max-w-[768px] mx-auto pb-12 w-full">
-      {props.messages.map((m, i) => {
+      {props.messages.map((m) => {
         return (
           <ChatMessageBubble key={m.id} message={m} aiEmoji={props.aiEmoji} />
         );
@@ -124,7 +123,12 @@ export function ChatWindow(props: {
   const [threadId, setThreadId] = useQueryState("threadId");
   const [input, setInput] = useState("");
 
-  const fetchWithCredentials = (url, options = {}) => {
+  // Typed to match the global `fetch` signature so it satisfies
+  // `callerOptions.fetch` expected by the LangGraph SDK's useStream hook.
+  const fetchWithCredentials = (
+    url: RequestInfo | URL,
+    options: RequestInit = {},
+  ): Promise<Response> => {
     return fetch(url, {
       ...options,
       credentials: "include",
@@ -177,13 +181,7 @@ export function ChatWindow(props: {
           chat.messages.length === 0 ? (
             <div>{props.emptyStateComponent}</div>
           ) : (
-            <>
-              <ChatMessages
-                aiEmoji={props.emoji}
-                messages={chat.messages}
-                emptyStateComponent={props.emptyStateComponent}
-              />
-            </>
+            <ChatMessages aiEmoji={props.emoji} messages={chat.messages} />
           )
         }
         footer={
