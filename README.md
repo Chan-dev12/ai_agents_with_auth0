@@ -1,103 +1,194 @@
-# Assistant0: An AI Personal Assistant Secured with Auth0 - LangGraph Python/FastAPI Version
+# AI Agents with Auth0 🔐🤖
 
-Assistant0 an AI personal assistant that consolidates your digital life by dynamically accessing multiple tools to help you stay organized and efficient.
+An enterprise-grade AI agent application featuring a **FastAPI** backend, a **LangGraph**-powered agent, and a **React + Vite** frontend, secured end-to-end with **Auth0-based Role-Based Access Control (RBAC)**.
 
-## About the template
+This project demonstrates how to build production-ready agentic AI systems where every request — from the chat UI down to individual agent tool calls — is authenticated and authorized.
 
-This template scaffolds an Auth0 + LangChain.js + Next.js starter app. It mainly uses the following libraries:
+---
 
-- [LangChain's Python framework](https://python.langchain.com/docs/introduction/) and [LangGraph.js](https://langchain-ai.github.io/langgraph/) for building agentic workflows.
-- The [Auth0 AI SDK](https://github.com/auth0/auth0-ai-python) and [Auth0 FastAPI SDK](https://github.com/auth0/auth0-fastapi) to secure the application and call third-party APIs.
-- [Auth0 FGA](https://auth0.com/fine-grained-authorization) to define fine-grained access control policies for your tools and RAG pipelines.
+## ✨ Features
 
-## 🚀 Getting Started
+- **Conversational AI Agent** — Built with LangGraph, supporting streaming responses and stateful multi-turn conversations.
+- **Secure Authentication** — Auth0 handles login, session, and token management.
+- **Role-Based Access Control (RBAC)** — Fine-grained permissions so different user roles (e.g. `admin`, `user`, `viewer`) can access different agent capabilities and data.
+- **Streaming Chat UI** — React frontend with real-time streaming responses, optimistic UI updates, and auto-scroll.
+- **Credentialed API Communication** — All frontend-to-backend requests are sent with credentials (cookies) included, so authenticated sessions persist securely.
+- **FastAPI Backend** — Async, typed, and easily extensible with new agent endpoints or tools.
 
-First, clone this repo and download it locally.
+---
 
-```bash
-git clone https://github.com/auth0-samples/auth0-ai-samples.git
-cd auth0-ai-samples/authenticate-users/langchain-fastapi-py
+## 🏗️ Architecture
+
+```
+┌─────────────────┐        ┌──────────────────┐        ┌─────────────────┐
+│  React + Vite    │  HTTP  │  FastAPI Backend  │        │     Auth0       │
+│  Frontend         │◄─────►│  + LangGraph Agent │◄─────►│  (Auth & RBAC)  │
+│  (Chat UI)         │  SSE  │                    │        │                 │
+└─────────────────┘        └──────────────────┘        └─────────────────┘
 ```
 
-The project is divided into two parts:
+1. The **frontend** authenticates the user via Auth0 (Universal Login / SPA SDK).
+2. Auth0 issues a session/token containing the user's **roles and permissions**.
+3. The **backend** validates the token on every request and enforces RBAC before invoking the **LangGraph agent**.
+4. The agent streams responses back to the frontend via Server-Sent Events (SSE) / streaming.
 
-- `backend/` contains the backend code for the Web app and API written in Python using FastAPI.
-- `frontend/` contains the frontend code for the Web app written in React as a Vite SPA.
+---
 
-### Setup the backend
+## 🧰 Tech Stack
+
+| Layer          | Technology                                  |
+|----------------|----------------------------------------------|
+| Frontend       | React, Vite, TypeScript, Tailwind CSS         |
+| Agent Runtime  | LangGraph, LangChain                          |
+| Backend        | FastAPI, Python                               |
+| Auth & RBAC    | Auth0                                         |
+| Streaming      | LangGraph SDK (`useStream`), SSE              |
+
+---
+
+## 📋 Prerequisites
+
+- Node.js (v18+) and npm/yarn/pnpm
+- Python 3.10+
+- An [Auth0](https://auth0.com/) account with:
+  - A configured Application (SPA) for the frontend
+  - A configured API for the backend
+  - Roles/permissions set up for RBAC (e.g. `admin`, `user`)
+
+---
+
+## ⚙️ Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Chan-dev12/ai_agents_with_auth0.git
+cd ai_agents_with_auth0
+```
+
+### 2. Backend setup
 
 ```bash
 cd backend
-```
-
-Next, you'll need to set up environment variables in your repo's `.env` file. Copy the `.env.example` file to `.env`.
-
-To start with the basic examples, you'll just need to add your OpenAI API key and Auth0 credentials.
-
-- To start with the examples, you'll just need to add your OpenAI API key and Auth0 credentials for the Web app.
-  - You can setup a new Auth0 tenant with an Auth0 Web App and Token Vault following the Prerequisites instructions [here](https://auth0.com/ai/docs/get-started/user-authentication).
-  - An Auth0 FGA account, you can create one [here](https://dashboard.fga.dev). Add the FGA store ID, client ID, client secret, and API URL to the `.env` file.
-
-Next, install the required packages using your preferred package manager, e.g. uv:
-
-```bash
-uv sync
-```
-
-Now you're ready to start the database:
-
-```bash
-# start the postgres database
-docker compose up -d
-```
-
-Initialize FGA store:
-
-```bash
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
 source .venv/bin/activate
-python -m app.core.fga_init
+
+pip install -r requirements.txt
 ```
 
-Now you're ready to run the development server:
+Create a `.env` file in the `backend/` directory:
+
+```env
+AUTH0_DOMAIN=your-tenant.auth0.com
+AUTH0_AUDIENCE=your-api-identifier
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+Run the backend:
 
 ```bash
-source .venv/bin/activate
-fastapi dev app/main.py
+uvicorn app.main:app --reload
 ```
 
-### Start the LangGraph server
-
-Next, you'll need to start an in-memory LangGraph server on port 54367, to do so open a new terminal and run:
-
-```bash
-source .venv/bin/activate
-uv pip install -U langgraph-api
-langgraph dev --port 54367 --allow-blocking
-```
-
-### Start the frontend server
-
-Rename `.env.example` file to `.env` in the `frontend` directory.
-
-Finally, you can start the frontend server in another terminal:
+### 3. Frontend setup
 
 ```bash
 cd frontend
-cp .env.example .env # Copy the `.env.example` file to `.env`.
 npm install
+```
+
+Create a `.env` file in the `frontend/` directory:
+
+```env
+VITE_API_HOST=http://localhost:8000
+VITE_AUTH0_DOMAIN=your-tenant.auth0.com
+VITE_AUTH0_CLIENT_ID=your-spa-client-id
+VITE_AUTH0_AUDIENCE=your-api-identifier
+```
+
+Run the frontend:
+
+```bash
 npm run dev
 ```
 
-This will start a React vite server on port 5173.
+The app will be available at `http://localhost:3000`.
 
-![A streaming conversation between the user and the AI](./public/images/home-page.png)
+---
 
-Agent configuration lives in `backend/app/agents/assistant0.ts`. From here, you can change the prompt and model, or add other tools and logic.
+## 🔑 Auth0 RBAC Configuration
 
-## License
+1. In the Auth0 Dashboard, enable **RBAC** and **Add Permissions in the Access Token** for your API.
+2. Define roles (e.g. `admin`, `user`) under **User Management → Roles**.
+3. Assign permissions to each role (e.g. `read:agent`, `manage:agent`, `admin:all`).
+4. Assign roles to users under **User Management → Users → Roles**.
+5. The backend reads the roles/permissions from the validated access token and enforces access per-endpoint or per-tool.
 
-This project is open-sourced under the MIT License - see the [LICENSE](LICENSE) file for details.
+> ⚠️ Never commit your `.env` files or Auth0 client secrets to version control. Make sure they're listed in `.gitignore`.
 
-## Author
+---
 
-This project is built by [Juan Cruz Martinez](https://github.com/jcmartinezdev).
+## 📁 Project Structure
+
+```
+ai_agents_with_auth0/
+├── backend/
+│   ├── app/
+│   │   ├── main.py           # FastAPI app entrypoint
+│   │   ├── agent/            # LangGraph agent definition & tools
+│   │   ├── auth/             # Auth0 token validation & RBAC middleware
+│   │   └── routes/           # API routes
+│   ├── requirements.txt
+│   └── .env
+├── frontend/
+│   ├── src/
+│   │   ├── components/       # Chat UI components
+│   │   ├── lib/               # Utilities
+│   │   └── App.tsx
+│   ├── package.json
+│   └── .env
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 🧪 Running Tests
+
+```bash
+# Backend
+cd backend
+pytest
+
+# Frontend
+cd frontend
+npm run test
+```
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] Add fine-grained tool-level authorization within the agent graph
+- [ ] Add audit logging for agent actions
+- [ ] Deploy with CI/CD (Docker + GitHub Actions)
+- [ ] Add multi-tenant support
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+---
+
+## 🙌 Acknowledgements
+
+- [LangGraph](https://github.com/langchain-ai/langgraph)
+- [Auth0](https://auth0.com/)
+- [FastAPI](https://fastapi.tiangolo.com/)
