@@ -11,4 +11,4 @@ class Embedding(SQLModel, table=True):
     )
     content: str
     meta: Dict = Field(default={}, sa_column=Column(JSON))
-    embedding: list[float] = Field(sa_column=Column(Vector(1536)))
+    embedding: list[float] = Field(sa_column=Column(Vector(768)))

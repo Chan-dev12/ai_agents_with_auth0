@@ -105,63 +105,17 @@ async def get_profile(request: Request, response: Response):
     }
 
 
-# ---------------------------------------------------------------------------
-# NEW: Role-based access control dependencies
-# ---------------------------------------------------------------------------
-
-async def get_current_session(request: Request, response: Response) -> dict:
-    """Fetch the active Auth0 session. Raises 401 if not logged in."""
-    store_options = {"request": request, "response": response}
-    session = await auth_client.client.get_session(store_options=store_options)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-    return session
-
-
-async def get_current_user(session: dict = Depends(get_current_session)) -> dict:
-    """Return the user object from the session."""
-    user = session.get("user") or {}
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-    return user
-
-
 def require_role(*allowed_roles: str):
     """
     Dependency to protect a route by role.
-    Usage: @router.get("/admin", dependencies=[Depends(require_role("admin"))])
-    or: def route(user: dict = Depends(require_role("admin", "manager"))):
-    """
-    async def role_checker(user: dict = Depends(get_current_user)) -> dict:
-        user_roles = user.get(ROLES_CLAIM, [])
-        if not any(role in allowed_roles for role in user_roles):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions",
-            )
-        return user
-    return role_checker
-
-from fastapi import Depends, HTTPException, status
-
-ROLES_CLAIM = "https://yourapp.com/roles"  # must match your Auth0 Action namespace
-
-
-def require_role(*allowed_roles: str):
-    """
+    Case-insensitive — matches regardless of how roles are capitalized in Auth0.
     Usage: Depends(require_role("admin", "manager"))
-    Works on top of auth_client.require_session.
     """
     async def role_checker(auth_session=Depends(auth_client.require_session)):
         user = auth_session.get("user") or {}
-        user_roles = user.get(ROLES_CLAIM, [])
-        if not any(role in allowed_roles for role in user_roles):
+        user_roles = [r.lower() for r in user.get(ROLES_CLAIM, [])]
+        allowed = [r.lower() for r in allowed_roles]
+        if not any(role in allowed for role in user_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions for this action",
