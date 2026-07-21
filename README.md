@@ -1,93 +1,106 @@
-# Assistant0 — Enterprise AI Agent with Auth0 RBAC & Security Hardening
+# Assistant0
 
-A full-stack AI agent application demonstrating enterprise-grade security patterns for LLM applications: role-based access control, prompt injection defense, sensitive data protection, and secure document RAG — built with FastAPI, LangGraph, Ollama, Auth0, and React.
+**An enterprise-grade AI agent reference implementation demonstrating secure LLM application architecture with Auth0.**
 
-## Features
+Assistant0 combines a LangGraph-based conversational agent with role-based access control, retrieval-augmented generation, and a layered defense strategy against common LLM security vulnerabilities, built entirely on a self-hosted, open-source stack.
 
-### 🔐 Authentication & Authorization
-- **Auth0 session-based authentication** via `auth0-fastapi` SDK (login, callback, logout, profile)
-- **Role-Based Access Control (RBAC)** enforced at both the REST API layer and inside AI agent tool calls
-- **Auth0 FGA (Fine-Grained Authorization)** for document-level ownership and sharing permissions
-- Case-insensitive role matching to handle inconsistent role capitalization from Auth0
+---
 
-### 🤖 AI Agent (LangGraph + Ollama)
-- Local LLM inference via **Ollama** (`llama3.1`) — no external API costs, fully self-hosted
-- **Deterministic tool routing**: sensitive operations (salary lookups, document search) are triggered by code-level pattern matching, never left to the LLM's own judgment — eliminating a whole class of hallucination and permission-bypass risks
-- Async-safe implementation (Windows-compatible event loop handling for psycopg + LangGraph)
+## Overview
 
-### 📄 Document RAG Pipeline
-- Document upload → chunking (`RecursiveCharacterTextSplitter`) → embeddings (`nomic-embed-text` via Ollama) → storage in **Postgres + pgvector**
-- Retrieval strictly filtered to documents the requesting user **owns or has been shared** — enforced before content ever reaches the LLM
-- Retrieved content wrapped as `<untrusted_data>` and explicitly flagged to the model as non-instructional reference material
+This project serves as a practical reference for building production-minded AI agents where **authorization and data protection are enforced in application code, not delegated to the language model's judgment.** Every sensitive operation — salary lookups, document retrieval, role-gated actions — is routed deterministically, with the LLM used strictly for language understanding and generation rather than access control decisions.
 
-### 🛡️ LLM Security Hardening (OWASP Top 10 for LLM Applications)
+## Core Capabilities
 
-| Vulnerability | Mitigation |
+### Identity & Access Management
+- Session-based authentication via Auth0, with secure login, callback, and logout flows
+- Role-Based Access Control (RBAC) enforced at both the API layer and within individual agent tool calls
+- Fine-Grained Authorization (Auth0 FGA) governing document ownership and sharing relationships
+- Resilient, case-insensitive role matching to accommodate inconsistent identity provider data
+
+### Conversational Agent
+- Self-hosted LLM inference via Ollama (Llama 3.1), eliminating dependency on third-party inference APIs
+- Deterministic tool invocation — sensitive actions are triggered by application logic rather than model discretion, closing a significant class of prompt-injection and hallucination risk
+- Fully asynchronous execution path, including Windows-compatible event loop configuration for the async Postgres driver
+
+### Document Intelligence (RAG)
+- Document ingestion pipeline: chunking, embedding (Ollama `nomic-embed-text`), and vector storage (Postgres with pgvector)
+- Retrieval scoped exclusively to documents the requesting user owns or has been granted access to, enforced prior to any LLM invocation
+- Retrieved content is explicitly demarcated as untrusted, non-instructional data to the model
+
+### LLM Security Controls
+
+This implementation directly addresses several categories from the **OWASP Top 10 for LLM Applications**:
+
+| Category | Control |
 |---|---|
-| **LLM01 — Prompt Injection** | Regex-based detection short-circuits before the LLM is invoked; malicious instructions embedded in messages or documents are never followed |
-| **LLM02 — Sensitive Information Disclosure** | Role-gated tools, self-data isolation, reversible PII masking (see below), and a final output-scrubbing safety net for emails/SSNs/API keys |
-| **LLM06 — Excessive Agency** | No tool-binding on the LLM — every sensitive tool call is triggered deterministically by application code, never by model discretion |
-| **LLM07 — System Prompt Leakage** | Dedicated detection layer refuses to reveal internal instructions, security rules, or tool logic, even under direct or indirect probing |
+| Prompt Injection | Pattern-based detection intercepts adversarial instructions before they reach the model |
+| Sensitive Information Disclosure | Role-scoped tool access, self-record isolation, reversible PII masking, and output-level redaction as a final safeguard |
+| Excessive Agency | The model is never bound to tools directly; all sensitive operations are routed by deterministic application logic |
+| System Prompt Leakage | Dedicated detection prevents disclosure of internal instructions under both direct and indirect probing |
 
-### 🔒 Reversible PII Masking
+### Reversible PII Masking
 
-A key design pattern in this project: sensitive values (emails, phone numbers) inside retrieved documents are **masked with placeholder tokens before the LLM ever processes them**, and only unmasked back to real values in the final response — after the user's access has already been verified. This means the LLM's own reasoning never touches real PII, while authorized users still get real data in their answers.
-
-```
-Real document:  "email id is chandruv@dotsolved.com"
-LLM sees:       "email id is [EMAIL_a1b2c3]"
-LLM responds:   "The email is [EMAIL_a1b2c3]"
-User sees:      "The email is chandruv@dotsolved.com"
-```
-
-## Tech Stack
-
-**Backend:** FastAPI · LangGraph · LangChain · Ollama · SQLModel · Postgres (pgvector) · Auth0 (auth0-fastapi) · Auth0 FGA · Docker
-
-**Frontend:** React · Vite · TypeScript · Tailwind CSS v4 · shadcn/ui · LangGraph SDK
-
-**Observability:** LangSmith tracing (optional)
-
-## Architecture Overview
+A distinguishing feature of this implementation: personally identifiable information retrieved from documents is tokenized before being passed to the language model, and restored to its original value only in the final response — after the requesting user's authorization has already been verified.
 
 ```
-┌─────────────┐      ┌──────────────┐      ┌─────────────────┐
-│   React     │─────▶│   FastAPI    │─────▶│  LangGraph Dev   │
-│  Frontend   │      │   Backend    │      │  Server (Agent)  │
-│  (:3000)    │◀─────│   (:8000)    │◀─────│    (:2024)       │
-└─────────────┘      └──────┬───────┘      └────────┬─────────┘
-                             │                        │
-                    ┌────────┴────────┐      ┌────────┴────────┐
-                    │  Auth0 (login,  │      │  Ollama (local  │
-                    │  sessions, RBAC)│      │  llama3.1 +     │
-                    │  Auth0 FGA      │      │  nomic-embed)   │
-                    └─────────────────┘      └─────────────────┘
-                             │
-                    ┌────────┴────────┐
-                    │  Postgres +     │
-                    │  pgvector       │
-                    │  (Docker)       │
-                    └─────────────────┘
+Source document   ->  "email id is chandruv@dotsolved.com"
+Model receives     ->  "email id is [EMAIL_a1b2c3]"
+Model responds      ->  "The email is [EMAIL_a1b2c3]"
+User receives        ->  "The email is chandruv@dotsolved.com"
 ```
 
-## Prerequisites
+This ensures the model's reasoning process never has access to real personal data, while authorized end users still receive complete, accurate answers.
+
+---
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Backend | FastAPI, LangGraph, LangChain, SQLModel |
+| AI / ML | Ollama (Llama 3.1, nomic-embed-text) |
+| Data | PostgreSQL with pgvector, Docker |
+| Identity | Auth0, Auth0 FGA |
+| Frontend | React, Vite, TypeScript, Tailwind CSS, shadcn/ui |
+| Observability | LangSmith (optional) |
+
+---
+
+## Architecture
+
+```
+                 React              FastAPI              LangGraph
+                Frontend    ---->    Backend    ---->    Agent Server
+                 :3000      <----     :8000     <----      :2024
+                                        |                     |
+                                 Auth0 Sessions          Ollama
+                                 Auth0 FGA               (local inference)
+                                        |
+                                  PostgreSQL
+                                  + pgvector
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
 
 - Python 3.13
-- Node.js (for the frontend, Vite-based)
-- Docker Desktop (for Postgres + pgvector)
-- [Ollama](https://ollama.com) installed locally
+- Node.js
+- Docker Desktop
+- [Ollama](https://ollama.com)
 - An Auth0 tenant with RBAC enabled
 
-## Setup
-
-### 1. Pull required Ollama models
+### 1. Install required models
 
 ```bash
 ollama pull llama3.1
 ollama pull nomic-embed-text
 ```
 
-### 2. Start Postgres (via Docker)
+### 2. Start the database
 
 ```bash
 cd backend
@@ -96,7 +109,7 @@ docker compose up -d
 
 ### 3. Configure environment variables
 
-Create `backend/.env`:
+**`backend/.env`**
 
 ```env
 APP_BASE_URL=http://localhost:8000
@@ -122,116 +135,111 @@ OLLAMA_BASE_URL=http://localhost:11434
 # LangGraph
 LANGGRAPH_API_URL=http://127.0.0.1:2024
 
-# LangSmith (optional, for tracing)
+# LangSmith (optional)
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your-langsmith-key
 LANGCHAIN_PROJECT=assistant0-dev
 ```
 
-Create `frontend/.env`:
+**`frontend/.env`**
 
 ```env
 VITE_API_HOST=http://localhost:8000
 ```
 
-### 4. Set up Auth0
+### 4. Configure Auth0
 
-1. Create an Auth0 Application (Regular Web App)
-2. Add **Allowed Callback URLs**: `http://localhost:8000/auth/callback`
-3. Add **Allowed Logout URLs** and **Allowed Web Origins**: `http://localhost:3000`
-4. Under **Actions → Triggers → post-login**, add a custom action to inject roles:
+1. Create a Regular Web Application in your Auth0 dashboard
+2. Set **Allowed Callback URLs** to `http://localhost:8000/auth/callback`
+3. Set **Allowed Logout URLs** and **Allowed Web Origins** to `http://localhost:3000`
+4. Under **Actions -> Triggers -> post-login**, add a custom action to embed role claims:
 
-```javascript
-exports.onExecutePostLogin = async (event, api) => {
-  const namespace = 'https://yourapp.com';
-  if (event.authorization) {
-    api.idToken.setCustomClaim(`${namespace}/roles`, event.authorization.roles);
-    api.accessToken.setCustomClaim(`${namespace}/roles`, event.authorization.roles);
-  }
-};
-```
+   ```javascript
+   exports.onExecutePostLogin = async (event, api) => {
+     const namespace = 'https://yourapp.com';
+     if (event.authorization) {
+       api.idToken.setCustomClaim(`${namespace}/roles`, event.authorization.roles);
+       api.accessToken.setCustomClaim(`${namespace}/roles`, event.authorization.roles);
+     }
+   };
+   ```
 
-5. Enable **RBAC** and **Add Permissions in the Access Token** under your Auth0 API settings
-6. Create roles (`Admin`, `Manager`, `Employee`) and assign them to test users
+5. Enable RBAC and "Add Permissions in the Access Token" in your Auth0 API settings
+6. Define roles (`Admin`, `Manager`, `Employee`) and assign them to test accounts
 
-### 5. Initialize the database
+### 5. Initialize the database schema
 
 ```bash
 cd backend
 python create_db.py
 ```
 
-### 6. Run the backend
+### 6. Run the application
+
+Three processes run concurrently, each in its own terminal:
 
 ```bash
+# Backend API
 cd backend
 uvicorn app.main:app --reload
-```
 
-### 7. Run the LangGraph agent server
-
-```bash
+# Agent server
 cd backend
 langgraph dev
-```
 
-### 8. Run the frontend
-
-```bash
+# Frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000`.
+Navigate to `http://localhost:3000`.
+
+---
 
 ## Project Structure
 
 ```
 backend/
-├── app/
-│   ├── agents/
-│   │   └── assistant0.py       # LangGraph agent: tools, routing, security layers
-│   ├── api/
-│   │   ├── routes/
-│   │   │   ├── chat.py         # Proxies chat requests to LangGraph, injects user context
-│   │   │   ├── documents.py    # Document upload/share/delete (RBAC + FGA protected)
-│   │   │   └── salary.py       # Example RBAC-protected REST endpoints
-│   │   └── api_router.py
-│   ├── core/
-│   │   ├── auth.py             # Auth0 session handling, require_role() dependency
-│   │   ├── config.py           # Pydantic settings
-│   │   ├── db.py               # Database engine
-│   │   ├── fga.py              # Auth0 FGA authorization manager
-│   │   ├── pii_masking.py      # Reversible PII mask/unmask utilities
-│   │   └── rag.py              # Embedding generation + document retrieval
-│   └── models/                 # SQLModel table definitions
-├── create_db.py
-├── docker-compose.yml
-└── langgraph.json
+  app/
+    agents/
+      assistant0.py       # Agent definition, routing logic, security layers
+    api/
+      routes/
+        chat.py            # Chat proxy; injects authenticated user context
+        documents.py        # Document management (RBAC + FGA)
+        salary.py            # Example RBAC-protected endpoints
+      api_router.py
+    core/
+      auth.py               # Auth0 session handling and role dependencies
+      config.py              # Application settings
+      db.py                    # Database engine configuration
+      fga.py                    # Auth0 FGA client
+      pii_masking.py             # PII tokenization utilities
+      rag.py                      # Embedding generation and retrieval
+    models/                        # Data models
+  create_db.py
+  docker-compose.yml
+  langgraph.json
 
 frontend/
-├── src/
-│   ├── components/
-│   │   ├── chat-window.tsx
-│   │   ├── chat-message-bubble.tsx
-│   │   └── ui/                 # shadcn/ui components
-│   ├── pages/
-│   │   ├── ChatPage.tsx
-│   │   └── DocumentsPage.tsx
-│   └── lib/
-│       └── use-auth.ts
+  src/
+    components/
+    pages/
+    lib/
 ```
 
-## Security Notes
+---
 
-This project is a **learning/demonstration environment** for LLM application security patterns. Before any production use:
+## Production Considerations
 
-- Replace the hardcoded `SALARY_DATA` mock in `assistant0.py` with real database-backed records and per-row access checks
-- Remove debug `traceback.print_exc()` calls
-- Add rate limiting (LLM10 — Unbounded Consumption is not yet addressed)
-- Review dependencies for known vulnerabilities (LLM03 — Supply Chain)
-- Add validation/scanning on document uploads (LLM04 — Data Poisoning is only partially mitigated)
+This project is intended as a security-focused reference implementation. Before deploying in a production context, consider addressing the following:
+
+- Replace mock data structures with database-backed records subject to row-level authorization
+- Remove diagnostic logging retained from development
+- Implement rate limiting to mitigate unbounded resource consumption
+- Conduct a dependency audit for known vulnerabilities
+- Introduce content validation for document ingestion to reduce data-poisoning exposure
 
 ## License
 
