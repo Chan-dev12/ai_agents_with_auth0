@@ -196,6 +196,9 @@ npm run dev
 Navigate to `http://localhost:3000`.
 
 ---
+<img width="1919" height="989" alt="Screenshot 2026-07-22 150726" src="https://github.com/user-attachments/assets/d30735b6-8f3d-49c5-a9f4-d29d17cf885d" />
+
+
 
 ## Project Structure
 
