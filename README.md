@@ -44,10 +44,10 @@ This implementation directly addresses several categories from the **OWASP Top 1
 A distinguishing feature of this implementation: personally identifiable information retrieved from documents is tokenized before being passed to the language model, and restored to its original value only in the final response — after the requesting user's authorization has already been verified.
 
 ```
-Source document   ->  "email id is chandruv@dotsolved.com"
+Source document   ->  "email id is chandruv@company.com"
 Model receives     ->  "email id is [EMAIL_a1b2c3]"
 Model responds      ->  "The email is [EMAIL_a1b2c3]"
-User receives        ->  "The email is chandruv@dotsolved.com"
+User receives        ->  "The email is chandruv@company.com"
 ```
 
 This ensures the model's reasoning process never has access to real personal data, while authorized end users still receive complete, accurate answers.
