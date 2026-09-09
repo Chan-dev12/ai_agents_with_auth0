@@ -10,7 +10,7 @@ Assistant0 combines a LangGraph-based conversational agent with role-based acces
 
 This project serves as a practical reference for building production-minded AI agents where **authorization and data protection are enforced in application code, not delegated to the language model's judgment.** Every sensitive operation — salary lookups, document retrieval, role-gated actions — is routed deterministically, with the LLM used strictly for language understanding and generation rather than access control decisions.
 
-## Core Capabilities
+## Core CApabilities
 
 ### Identity & Access Management
 - Session-based authentication via Auth0, with secure login, callback, and logout flows
